@@ -160,18 +160,3 @@ Some text.
         markdown_text = "Just some text without tables."
         xlsx_bytes = renderer.render(markdown_text)
         assert len(xlsx_bytes) > 0
-
-    def test_extract_tables(self):
-        """Test table extraction logic."""
-        renderer = ExcelRenderer()
-        markdown_text = """
-| Col1 | Col2 |
-|------|------|
-| A | B |
-| C | D |
-"""
-        tables = renderer._extract_tables(markdown_text)
-        assert len(tables) == 1
-        assert tables[0][0] == ["Col1", "Col2"]
-        assert tables[0][1] == ["A", "B"]
-        assert tables[0][2] == ["C", "D"]

@@ -12,6 +12,7 @@ from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment
+from weasyprint import HTML, CSS
 
 from .parser import MarkdownParser
 
@@ -179,8 +180,6 @@ class PDFRenderer:
         include_toc: bool = False,
     ) -> bytes:
         """Render Markdown to PDF bytes."""
-        from weasyprint import HTML, CSS
-
         # Generate HTML with mermaid disabled (use server-side rendering)
         html_content = self.html_renderer.render(
             markdown_text,
