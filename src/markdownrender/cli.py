@@ -33,11 +33,17 @@ def main():
         help="Output format (default: html)",
     )
     render_parser.add_argument("-t", "--title", help="Document title (default: filename)")
-    render_parser.add_argument(
-        "--toc", action="store_true", help="Include table of contents"
-    )
+    render_parser.add_argument("--toc", action="store_true", help="Include table of contents")
     render_parser.add_argument(
         "--no-css", action="store_true", help="Exclude default CSS (HTML only)"
+    )
+    render_parser.add_argument(
+        "--plantuml-server",
+        help="PlantUML server URL (default: http://www.plantuml.com/plantuml)",
+    )
+    render_parser.add_argument(
+        "--mermaid-server",
+        help="Mermaid server URL for server-side rendering (optional)",
     )
 
     # Server command
@@ -48,9 +54,7 @@ def main():
     server_parser.add_argument(
         "-H", "--host", default="0.0.0.0", help="Server host (default: 0.0.0.0)"
     )
-    server_parser.add_argument(
-        "--debug", action="store_true", help="Enable debug mode"
-    )
+    server_parser.add_argument("--debug", action="store_true", help="Enable debug mode")
 
     args = parser.parse_args()
 
@@ -84,8 +88,17 @@ def render_file(args):
     # Determine title
     title = args.title or input_path.stem
 
-    # Create renderer
-    md_parser = MarkdownParser()
+    # Create parser with optional server configurations
+    plantuml_server = (
+        args.plantuml_server
+        if hasattr(args, "plantuml_server") and args.plantuml_server
+        else "http://www.plantuml.com/plantuml"
+    )
+    mermaid_server = (
+        args.mermaid_server if hasattr(args, "mermaid_server") and args.mermaid_server else None
+    )
+
+    md_parser = MarkdownParser(plantuml_server=plantuml_server, mermaid_server=mermaid_server)
 
     try:
         if args.format == "html":

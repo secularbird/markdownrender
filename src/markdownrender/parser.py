@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 import markdown
+import requests
 from markdown.extensions import Extension
 from markdown.preprocessors import Preprocessor
 
@@ -17,13 +18,12 @@ from markdown.preprocessors import Preprocessor
 class MermaidPreprocessor(Preprocessor):
     """Preprocessor to convert Mermaid code blocks to images."""
 
-    MERMAID_PATTERN = re.compile(
-        r"```mermaid\s*\n(.*?)```", re.MULTILINE | re.DOTALL
-    )
+    MERMAID_PATTERN = re.compile(r"```mermaid\s*\n(.*?)```", re.MULTILINE | re.DOTALL)
 
     def __init__(self, md, config):
         super().__init__(md)
         self.config = config
+        self.mermaid_server = config.get("mermaid_server", None)
 
     def run(self, lines: list) -> list:
         text = "\n".join(lines)
@@ -33,6 +33,15 @@ class MermaidPreprocessor(Preprocessor):
     def _render_mermaid(self, match) -> str:
         """Render Mermaid diagram to SVG or return placeholder."""
         mermaid_code = match.group(1).strip()
+
+        # Try to render using Mermaid server if configured
+        if self.mermaid_server:
+            try:
+                svg_content = self._render_with_server(mermaid_code)
+                if svg_content:
+                    return f'<div class="mermaid-diagram">{svg_content}</div>'
+            except Exception:
+                pass
 
         # Try to render using mmdc (mermaid-cli) if available
         try:
@@ -47,9 +56,7 @@ class MermaidPreprocessor(Preprocessor):
 
     def _render_with_mmdc(self, mermaid_code: str) -> Optional[str]:
         """Render Mermaid diagram using mmdc CLI tool."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".mmd", delete=False
-        ) as input_file:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".mmd", delete=False) as input_file:
             input_file.write(mermaid_code)
             input_path = input_file.name
 
@@ -70,6 +77,22 @@ class MermaidPreprocessor(Preprocessor):
 
         return None
 
+    def _render_with_server(self, mermaid_code: str) -> Optional[str]:
+        """Render Mermaid diagram using Mermaid server."""
+        try:
+            response = requests.post(
+                f"{self.mermaid_server}/render",
+                json={"code": mermaid_code, "mermaid": {}},
+                timeout=30,
+            )
+            if response.status_code == 200:
+                result = response.json()
+                if "svg" in result:
+                    return result["svg"]
+        except Exception:
+            pass
+        return None
+
     def _create_client_side_mermaid(self, mermaid_code: str) -> str:
         """Create HTML for client-side Mermaid rendering."""
         diagram_id = hashlib.md5(mermaid_code.encode()).hexdigest()[:8]
@@ -80,9 +103,7 @@ class MermaidPreprocessor(Preprocessor):
 class PlantUMLPreprocessor(Preprocessor):
     """Preprocessor to convert PlantUML code blocks to images."""
 
-    PLANTUML_PATTERN = re.compile(
-        r"```plantuml\s*\n(.*?)```", re.MULTILINE | re.DOTALL
-    )
+    PLANTUML_PATTERN = re.compile(r"```plantuml\s*\n(.*?)```", re.MULTILINE | re.DOTALL)
 
     def __init__(self, md, config):
         super().__init__(md)
@@ -150,6 +171,10 @@ class DiagramExtension(Extension):
                 "http://www.plantuml.com/plantuml",
                 "PlantUML server URL",
             ],
+            "mermaid_server": [
+                "",
+                "Mermaid server URL (optional, for server-side rendering)",
+            ],
         }
         super().__init__(**kwargs)
 
@@ -172,12 +197,18 @@ class MarkdownParser:
     def __init__(
         self,
         plantuml_server: str = "http://www.plantuml.com/plantuml",
+        mermaid_server: Optional[str] = None,
     ):
         self.plantuml_server = plantuml_server
+        self.mermaid_server = mermaid_server
         self._md = self._create_markdown_instance()
 
     def _create_markdown_instance(self) -> markdown.Markdown:
         """Create configured Markdown instance."""
+        extension_config = {"plantuml_server": self.plantuml_server}
+        if self.mermaid_server:
+            extension_config["mermaid_server"] = self.mermaid_server
+
         return markdown.Markdown(
             extensions=[
                 "tables",
@@ -186,7 +217,7 @@ class MarkdownParser:
                 "toc",
                 "attr_list",
                 "md_in_html",
-                DiagramExtension(plantuml_server=self.plantuml_server),
+                DiagramExtension(**extension_config),
             ],
             extension_configs={
                 "codehilite": {
