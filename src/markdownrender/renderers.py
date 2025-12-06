@@ -123,8 +123,9 @@ class HTMLRenderer:
     </script>
     """
 
-    def __init__(self, parser: Optional[MarkdownParser] = None):
+    def __init__(self, parser: Optional[MarkdownParser] = None, table_style: Optional[str] = None):
         self.parser = parser or MarkdownParser()
+        self.table_style = table_style
 
     def render(
         self,
@@ -144,6 +145,11 @@ class HTMLRenderer:
                 toc_html = f'<div class="toc"><strong>Table of Contents</strong>{toc}</div>'
 
         css = self.DEFAULT_CSS if include_css else ""
+
+        # Add custom table style if provided
+        if self.table_style and include_css:
+            css += f"\n<style>\n{self.table_style}\n</style>"
+
         mermaid_js = self.MERMAID_SCRIPT if include_mermaid_js else ""
 
         return f"""<!DOCTYPE html>
@@ -219,8 +225,9 @@ class PDFRenderer:
 class WordRenderer:
     """Render Markdown to Word (DOCX) document."""
 
-    def __init__(self, parser: Optional[MarkdownParser] = None):
+    def __init__(self, parser: Optional[MarkdownParser] = None, table_style: Optional[str] = None):
         self.parser = parser or MarkdownParser()
+        self.table_style = table_style or "Table Grid"
 
     def render(
         self,
@@ -370,7 +377,7 @@ class WordRenderer:
 
         num_cols = max(len(row) for row in rows)
         table = doc.add_table(rows=len(rows), cols=num_cols)
-        table.style = "Table Grid"
+        table.style = self.table_style
 
         for i, row in enumerate(rows):
             for j, cell in enumerate(row):
@@ -435,9 +442,7 @@ class ExcelRenderer:
 
                 for row_idx, row in enumerate(table):
                     for col_idx, cell in enumerate(row, start=1):
-                        excel_cell = ws.cell(
-                            row=current_row + row_idx, column=col_idx, value=cell
-                        )
+                        excel_cell = ws.cell(row=current_row + row_idx, column=col_idx, value=cell)
                         # Format header row
                         if row_idx == 0:
                             excel_cell.font = Font(bold=True)

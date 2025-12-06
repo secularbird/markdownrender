@@ -167,6 +167,78 @@ def hello():
 
 Environment variables:
 - `PLANTUML_SERVER`: PlantUML server URL (default: http://www.plantuml.com/plantuml)
+- `MERMAID_SERVER`: Mermaid server URL for server-side rendering (optional)
+
+### Mermaid Server Configuration
+
+By default, Mermaid diagrams are rendered:
+1. First, using `mmdc` (mermaid-cli) if available
+2. If `mmdc` is not available, client-side rendering with JavaScript
+
+You can configure a Mermaid server for server-side rendering:
+
+**Environment Variable:**
+```bash
+export MERMAID_SERVER=https://your-mermaid-server.com
+```
+
+**CLI:**
+```bash
+markdownrender render document.md --mermaid-server https://your-mermaid-server.com
+```
+
+**Python API:**
+```python
+from markdownrender.parser import MarkdownParser
+
+parser = MarkdownParser(mermaid_server="https://your-mermaid-server.com")
+```
+
+### Table Style Customization
+
+You can customize how tables are displayed in different output formats:
+
+**HTML - Custom CSS:**
+```python
+from markdownrender.renderers import HTMLRenderer
+
+custom_table_css = """
+table { border: 2px solid blue; }
+th { background-color: #4CAF50; color: white; }
+"""
+
+renderer = HTMLRenderer(table_style=custom_table_css)
+html = renderer.render(markdown_text)
+```
+
+**Word - Table Style:**
+```python
+from markdownrender.renderers import WordRenderer
+
+# Use any Word built-in table style
+renderer = WordRenderer(table_style="Light Shading")
+docx_bytes = renderer.render(markdown_text)
+```
+
+**API - Custom Table Styles:**
+```bash
+# HTML with custom table CSS
+curl -X POST http://localhost:5000/render/html \
+  -H "Content-Type: application/json" \
+  -d '{
+    "markdown": "| A | B |\n|---|---|\n| 1 | 2 |",
+    "table_style": "table { border: 2px solid blue; }"
+  }'
+
+# Word with custom table style
+curl -X POST http://localhost:5000/render/docx \
+  -H "Content-Type: application/json" \
+  -d '{
+    "markdown": "| A | B |\n|---|---|\n| 1 | 2 |",
+    "table_style": "Light Shading"
+  }' \
+  --output document.docx
+```
 
 ## Development
 

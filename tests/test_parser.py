@@ -141,3 +141,23 @@ Even more text.
 
         assert "First" not in toc2
         assert "Second" in toc2
+
+    def test_mermaid_server_configuration(self):
+        """Test that mermaid_server can be configured."""
+        mermaid_server = "https://mermaid.example.com"
+        parser = MarkdownParser(mermaid_server=mermaid_server)
+        
+        assert parser.mermaid_server == mermaid_server
+        # Parser should be created successfully with mermaid_server
+        html = parser.parse("# Test")
+        assert "<h1" in html
+
+    def test_plantuml_server_configuration(self):
+        """Test that plantuml_server can be configured."""
+        plantuml_server = "https://plantuml.example.com"
+        parser = MarkdownParser(plantuml_server=plantuml_server)
+        
+        assert parser.plantuml_server == plantuml_server
+        # Parser should be created successfully with custom server
+        html = parser.parse("# Test")
+        assert "<h1" in html

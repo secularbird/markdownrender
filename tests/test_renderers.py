@@ -68,6 +68,23 @@ More content.
 
         assert "mermaid.initialize" in html
 
+    def test_render_with_custom_table_style(self):
+        """Test HTML rendering with custom table CSS."""
+        custom_css = """
+        table { border: 2px solid red; }
+        th { background-color: #ff0000; }
+        """
+        renderer = HTMLRenderer(table_style=custom_css)
+        markdown_text = """
+| Name | Age |
+|------|-----|
+| Alice | 30 |
+"""
+        html = renderer.render(markdown_text)
+        
+        assert "border: 2px solid red" in html
+        assert "background-color: #ff0000" in html
+
 
 class TestWordRenderer:
     """Test cases for WordRenderer."""
@@ -117,6 +134,18 @@ print("hello")
 """
         docx_bytes = renderer.render(markdown_text)
         assert len(docx_bytes) > 0
+
+    def test_render_with_custom_table_style(self):
+        """Test Word document with custom table style."""
+        renderer = WordRenderer(table_style="Light Shading")
+        markdown_text = """
+| Name | Age |
+|------|-----|
+| Alice | 30 |
+"""
+        docx_bytes = renderer.render(markdown_text)
+        assert len(docx_bytes) > 0
+        # Table style is applied internally, just verify it renders
 
 
 class TestExcelRenderer:

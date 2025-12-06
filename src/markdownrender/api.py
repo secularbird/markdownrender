@@ -16,16 +16,9 @@ def create_app(config: dict = None) -> Flask:
     if config:
         app.config.update(config)
 
-    # Initialize components
-    parser = MarkdownParser(
-        plantuml_server=app.config.get(
-            "PLANTUML_SERVER", "http://www.plantuml.com/plantuml"
-        )
-    )
-    html_renderer = HTMLRenderer(parser=parser)
-    pdf_renderer = PDFRenderer(parser=parser)
-    word_renderer = WordRenderer(parser=parser)
-    excel_renderer = ExcelRenderer(parser=parser)
+    # Get server configurations
+    plantuml_server = app.config.get("PLANTUML_SERVER", "http://www.plantuml.com/plantuml")
+    mermaid_server = app.config.get("MERMAID_SERVER", None)
 
     @app.route("/health", methods=["GET"])
     def health():
@@ -42,6 +35,7 @@ def create_app(config: dict = None) -> Flask:
             - include_toc: bool (optional) - Include table of contents
             - include_css: bool (optional) - Include default CSS
             - fragment: bool (optional) - Return only HTML fragment without document wrapper
+            - table_style: str (optional) - Custom CSS for table styling
 
         Returns:
             HTML content as text/html
@@ -56,8 +50,12 @@ def create_app(config: dict = None) -> Flask:
         include_toc = data.get("include_toc", False)
         include_css = data.get("include_css", True)
         fragment = data.get("fragment", False)
+        table_style = data.get("table_style", None)
 
         try:
+            parser = MarkdownParser(plantuml_server=plantuml_server, mermaid_server=mermaid_server)
+            html_renderer = HTMLRenderer(parser=parser, table_style=table_style)
+
             if fragment:
                 html = html_renderer.render_fragment(markdown_text)
             else:
@@ -79,6 +77,7 @@ def create_app(config: dict = None) -> Flask:
             - markdown: str - The markdown content to render
             - title: str (optional) - Document title
             - include_toc: bool (optional) - Include table of contents
+            - table_style: str (optional) - Custom CSS for table styling
 
         Returns:
             PDF file as application/pdf
@@ -91,11 +90,14 @@ def create_app(config: dict = None) -> Flask:
         markdown_text = data["markdown"]
         title = data.get("title", "Document")
         include_toc = data.get("include_toc", False)
+        table_style = data.get("table_style", None)
 
         try:
-            pdf_bytes = pdf_renderer.render(
-                markdown_text, title=title, include_toc=include_toc
-            )
+            parser = MarkdownParser(plantuml_server=plantuml_server, mermaid_server=mermaid_server)
+            pdf_renderer = PDFRenderer(parser=parser)
+            pdf_renderer.html_renderer.table_style = table_style
+
+            pdf_bytes = pdf_renderer.render(markdown_text, title=title, include_toc=include_toc)
             return send_file(
                 io.BytesIO(pdf_bytes),
                 mimetype="application/pdf",
@@ -112,6 +114,8 @@ def create_app(config: dict = None) -> Flask:
         Request body:
             - markdown: str - The markdown content to render
             - title: str (optional) - Document title
+            - table_style: str (optional) - Word table style name
+              (e.g., 'Table Grid', 'Light Shading')
 
         Returns:
             DOCX file as application/vnd.openxmlformats-officedocument.wordprocessingml.document
@@ -123,8 +127,12 @@ def create_app(config: dict = None) -> Flask:
 
         markdown_text = data["markdown"]
         title = data.get("title", "Document")
+        table_style = data.get("table_style", None)
 
         try:
+            parser = MarkdownParser(plantuml_server=plantuml_server, mermaid_server=mermaid_server)
+            word_renderer = WordRenderer(parser=parser, table_style=table_style)
+
             docx_bytes = word_renderer.render(markdown_text, title=title)
             return send_file(
                 io.BytesIO(docx_bytes),
@@ -155,6 +163,9 @@ def create_app(config: dict = None) -> Flask:
         title = data.get("title", "Document")
 
         try:
+            parser = MarkdownParser(plantuml_server=plantuml_server, mermaid_server=mermaid_server)
+            excel_renderer = ExcelRenderer(parser=parser)
+
             xlsx_bytes = excel_renderer.render(markdown_text, title=title)
             return send_file(
                 io.BytesIO(xlsx_bytes),
@@ -174,6 +185,9 @@ def create_app(config: dict = None) -> Flask:
             - format: str - Output format (html, pdf, docx, xlsx)
             - title: str (optional) - Document title
             - options: dict (optional) - Format-specific options
+                - table_style: str (optional) - Custom table styling
+                - include_toc: bool (optional) - Include table of contents (html, pdf)
+                - include_css: bool (optional) - Include default CSS (html)
 
         Returns:
             Rendered document in the requested format
@@ -190,9 +204,13 @@ def create_app(config: dict = None) -> Flask:
         markdown_text = data["markdown"]
         title = data.get("title", "Document")
         options = data.get("options", {})
+        table_style = options.get("table_style", None)
 
         try:
+            parser = MarkdownParser(plantuml_server=plantuml_server, mermaid_server=mermaid_server)
+
             if output_format == "html":
+                html_renderer = HTMLRenderer(parser=parser, table_style=table_style)
                 html = html_renderer.render(
                     markdown_text,
                     title=title,
@@ -202,6 +220,8 @@ def create_app(config: dict = None) -> Flask:
                 return Response(html, mimetype="text/html")
 
             elif output_format == "pdf":
+                pdf_renderer = PDFRenderer(parser=parser)
+                pdf_renderer.html_renderer.table_style = table_style
                 pdf_bytes = pdf_renderer.render(
                     markdown_text,
                     title=title,
@@ -215,6 +235,7 @@ def create_app(config: dict = None) -> Flask:
                 )
 
             elif output_format == "docx":
+                word_renderer = WordRenderer(parser=parser, table_style=table_style)
                 docx_bytes = word_renderer.render(markdown_text, title=title)
                 docx_mime = "application/vnd.openxmlformats-officedocument"
                 docx_mime += ".wordprocessingml.document"
@@ -226,6 +247,7 @@ def create_app(config: dict = None) -> Flask:
                 )
 
             elif output_format == "xlsx":
+                excel_renderer = ExcelRenderer(parser=parser)
                 xlsx_bytes = excel_renderer.render(markdown_text, title=title)
                 return send_file(
                     io.BytesIO(xlsx_bytes),
