@@ -79,7 +79,14 @@ class MermaidPreprocessor(Preprocessor):
 
     def _render_with_server(self, mermaid_code: str) -> Optional[str]:
         """Render Mermaid diagram using Mermaid server."""
+        if not self.mermaid_server:
+            return None
+
         try:
+            # Basic URL validation
+            if not self.mermaid_server.startswith(("http://", "https://")):
+                return None
+
             response = requests.post(
                 f"{self.mermaid_server}/render",
                 json={"code": mermaid_code, "mermaid": {}},
@@ -89,7 +96,12 @@ class MermaidPreprocessor(Preprocessor):
                 result = response.json()
                 if "svg" in result:
                     return result["svg"]
-        except Exception:
+        except (
+            requests.RequestException,
+            ValueError,
+            KeyError,
+        ):
+            # Silently fail and fallback to other rendering methods
             pass
         return None
 
